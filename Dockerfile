@@ -13,7 +13,7 @@ ARG GITHUB_CLI_VERSION=2.71.0
 ARG GITHUB_CLI_URL=https://github.com/cli/cli/releases/download/v${GITHUB_CLI_VERSION}/gh_${GITHUB_CLI_VERSION}_linux_amd64.tar.gz
 ARG GITHUB_CLI_SHA256=c85ef9d7b35f0a13a656e352091005cd0a766e5e3a6006e821b810486c81cacd
 
-ARG TRIVY_VERSION=0.50.2
+ARG TRIVY_VERSION=0.61.1
 ARG TERRAFORM_VERSION=1.11.4
 ARG TFLINT_VERSION=0.56.0
 
@@ -79,6 +79,11 @@ RUN wget https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSIO
   strip /usr/local/bin/trivy || true
 
 COPY --from=builder /go/bin/newres /usr/local/bin/
+
+COPY .tflint.hcl /root/.tflint.hcl
+
+RUN tflint --init --enable-plugin=azurerm && \
+  tflint --version
 
 RUN pwsh -Command " \
   Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted; \

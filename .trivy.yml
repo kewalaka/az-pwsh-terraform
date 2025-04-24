@@ -1,0 +1,17 @@
+version: 1
+
+# Trivy configuration for scanning Docker images
+image:
+  # Ignore unfixed vulnerabilities
+  ignoreUnfixed: true
+  # Severities to include in the report
+  severities:
+    - HIGH
+    - CRITICAL
+
+# Output format
+output: results.json
+format: json
+
+# Ignore file for false positives (optional)
+# ignoreFile: .trivyignore
