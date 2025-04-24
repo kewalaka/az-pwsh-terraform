@@ -20,16 +20,37 @@ jobs:
       run: |
         docker build -t pr-az-pwsh-terraform:latest .
 
-    - name: Scan Docker image with Trivy
+    - name: Scan Docker image with Trivy and generate summary
       uses: aquasecurity/trivy-action@0.30.0
       with:
         image-ref: 'pr-az-pwsh-terraform:latest'
-        format: 'sarif'
-        output: 'results.sarif'
+        format: 'table'
+        output: 'trivy-results.txt'
+        severity: 'CRITICAL,HIGH,MEDIUM'
 
-    - name: Upload SARIF file
-      uses: github/codeql-action/upload-sarif@v3
-      if: success() || failure()
+    - name: Post Trivy scan results to PR
+      uses: actions/github-script@v6
+      if: github.event_name == 'pull_request'
       with:
-        category: container-security
-        sarif_file: results.sarif
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          const results = fs.readFileSync('trivy-results.txt', 'utf8');
+          
+          // Truncate comment if it's too long (GitHub has a limit)
+          let comment = '';
+          if (results.length > 50000) {
+            comment = results.substring(0, 45000) + '\n\n**Note:** The scan results have been truncated due to length. Please check the workflow logs for full results.';
+          } else {
+            comment = results;
+          }
+          
+          const header = '## Trivy Security Scan Results\n\n';
+          const footer = '\n\nThis includes critical, high and medium results, for more details, [view the complete workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: header + '```\n' + comment + '\n```' + footer
+          });

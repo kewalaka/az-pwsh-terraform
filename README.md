@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `az-pwsh-terraform` Docker image contains Terraform, PowerShell, TFLint, Checkov, Trivy, and other useful tools for managing and securing cloud infrastructure on Azure.
+The `az-pwsh-terraform` Docker image contains Terraform, PowerShell, TFLint, Trivy, and other useful tools for managing and securing cloud infrastructure on Azure.
 
 ## Tools Included
 
@@ -16,7 +16,6 @@ This Docker image includes the following tools:
 - **Terraform**
 - **Terraform-docs**: Generates Terraform module documentation automatically.
 - **TFLint**: A Terraform linter that helps detect possible issues in your Terraform code.
-- **Checkov**: A static code analysis tool for checking Terraform security best practices.
 - **Trivy**: A security scanner for container images, which helps detect vulnerabilities.
 - **Newres**: A tool to automate writing the main.tf and variables.tf files using the provider schema.
 
@@ -43,8 +42,7 @@ docker build -t az-pwsh-terraform .
 You can run and exec into the container using this:
 
 ```bash
-docker run -dit --name az-pwsh-tf az-pwsh-terraform
-docker exec -it az-pwsh-tf pwsh
+docker run -it --name az-pwsh-tf az-pwsh-terraform pwsh
 # remove with:
 #docker container rm az-pwsh-tf --force
 ```

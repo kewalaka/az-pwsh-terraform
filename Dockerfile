@@ -36,7 +36,6 @@ RUN apk add --no-cache \
   libunwind \
   lttng-ust \
   openssl \
-  py3-pip \
   tar \
   tzdata \
   unzip \
@@ -68,9 +67,6 @@ RUN wget -q https://github.com/terraform-linters/tflint/releases/download/v${TFL
   mv tflint /usr/local/bin/ && \
   rm tflint_linux_amd64.zip && \
   strip /usr/local/bin/tflint || true
-
-RUN pip install --no-cache-dir --quiet checkov && \
-  find /usr/lib/python3*/ -type d -name "__pycache__" -exec rm -r {} + || true
 
 RUN wget -q https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz && \
   tar -xzf trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz && \
