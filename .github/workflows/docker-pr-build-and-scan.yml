@@ -28,6 +28,20 @@ jobs:
         output: 'trivy-results.txt'
         severity: 'CRITICAL,HIGH,MEDIUM'
 
+    - name: Publish Trivy to action log
+      run: |
+        if [[ -s trivy-results.txt ]]; then
+          {
+            echo "### Security Output"
+            echo "<details><summary>Click to expand</summary>"
+            echo ""
+            echo '```terraform'
+            cat trivy-results.txt
+            echo '```'
+            echo "</details>"
+          } >> $GITHUB_STEP_SUMMARY
+        fi
+
     - name: Post Trivy scan results to PR
       uses: actions/github-script@v6
       if: github.event_name == 'pull_request'
@@ -46,7 +60,7 @@ jobs:
           }
           
           const header = '## Trivy Security Scan Results\n\n';
-          const footer = '\n\nThis includes critical, high and medium results, for more details, [view the complete workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+          const footer = `\n\nThis includes critical, high and medium results, for more details, [view the complete workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID})`;
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
