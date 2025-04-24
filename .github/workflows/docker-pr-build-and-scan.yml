@@ -66,7 +66,7 @@ jobs:
           }
           
           const header = '## Trivy Security Scan Summary\n\n';
-          const footer = '\n\n---\n\n*For detailed results, [view the actions output](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}).*';
+          const footer = `\n\n---\n\n*For detailed results, please [view the actions output](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}).*`;
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
