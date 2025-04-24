@@ -2,22 +2,23 @@
 
 ## Purpose
 
-The `az-pwsh-terraform` Docker image contains Terraform, PowerShell (with base modules for interacting with Azure), TFLint, Checkov, Trivy, and other useful tools for managing and securing cloud infrastructure on Azure.
+The `az-pwsh-terraform` Docker image contains Terraform, PowerShell, TFLint, Checkov, Trivy, and other useful tools for managing and securing cloud infrastructure on Azure.
 
 ## Tools Included
 
 This Docker image includes the following tools:
 
-- **PowerShell**: A cross-platform scripting language and shell for managing Azure resources.
+- **PowerShell**
 - **Azure PowerShell Modules**:
-  - `Az.Accounts`: For managing Azure account and subscription authentication.
-  - `Az.ManagedServiceIdentity`: For managing Azure Managed Service Identities.
-  - `Az.Resources`: For managing Azure resources.
-- **Terraform**: Infrastructure as Code (IaC) tool for provisioning Azure resources.
+  - `Az.Accounts`
+  - `Az.ManagedServiceIdentity`
+  - `Az.Resources`
+- **Terraform**
 - **Terraform-docs**: Generates Terraform module documentation automatically.
 - **TFLint**: A Terraform linter that helps detect possible issues in your Terraform code.
 - **Checkov**: A static code analysis tool for checking Terraform security best practices.
 - **Trivy**: A security scanner for container images, which helps detect vulnerabilities.
+- **Newres**: A tool to automate writing the main.tf and variables.tf files using the provider schema.
 
 ## Building the Docker Image
 
@@ -33,5 +34,17 @@ Ensure you have Docker installed on your machine. You can install Docker from th
 2. Open a terminal and navigate to the directory where the `Dockerfile` is located.
 3. Run the following command to build the image:
 
-   ```bash
-   docker build -t az-pwsh-terraform .
+```bash
+docker build -t az-pwsh-terraform .
+```
+
+### Testing with Docker
+
+You can run and exec into the container using this:
+
+```bash
+docker run -dit --name az-pwsh-tf az-pwsh-terraform
+docker exec -it az-pwsh-tf pwsh
+# remove with:
+#docker container rm az-pwsh-tf --force
+```

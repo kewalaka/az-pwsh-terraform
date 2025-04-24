@@ -1,7 +1,9 @@
 # build 
-FROM golang:1.24-alpine AS tfdocs-builder
+FROM golang:1.24-alpine AS builder
 RUN apk add --no-cache git
 RUN go install github.com/terraform-docs/terraform-docs@v0.20.0
+ARG NEWRES_VERSION=a535fe92925845dfa033a3db71adf7d65511cbf3
+RUN go install github.com/lonegunmanb/newres/v3@$NEWRES_VERSION
 
 # run
 FROM alpine:3.21
@@ -17,33 +19,35 @@ ARG TFLINT_VERSION=0.56.0
 
 RUN apk add --no-cache \
   bash \
-  curl \
-  wget \
-  unzip \
-  tar \
-  gzip \
-  jq \
-  openssl \
+  binutils \
   ca-certificates \
-  libintl \
-  libgcc \
-  libstdc++ \
-  libunwind \
-  icu-data-full \
-  krb5 \
-  tzdata \
-  lttng-ust \
+  curl \
   docker-cli \
   docker-compose \
-  py3-pip \
   git \
-  binutils && \
+  gzip \
+  icu \
+  icu-data-full \
+  jq \
+  krb5 \
+  libgcc \
+  libintl \
+  libstdc++ \
+  libunwind \
+  lttng-ust \
+  openssl \
+  py3-pip \
+  tar \
+  tzdata \
+  unzip \
+  wget && \
   rm -rf /var/cache/apk/*
 
 RUN wget https://github.com/PowerShell/PowerShell/releases/download/v${POWERSHELL_VERSION}/powershell-${POWERSHELL_VERSION}-linux-musl-x64.tar.gz && \
   mkdir -p /opt/microsoft/powershell/7 && \
   tar -xzf powershell-${POWERSHELL_VERSION}-linux-musl-x64.tar.gz -C /opt/microsoft/powershell/7 && \
   ln -s /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh && \
+  chmod +x /opt/microsoft/powershell/7/pwsh && \
   rm powershell-${POWERSHELL_VERSION}-linux-musl-x64.tar.gz && \
   rm -rf /opt/microsoft/powershell/7/{LICENSE.txt,ThirdPartyNotices.txt,*.md,test,docs}
 
@@ -74,14 +78,14 @@ RUN wget https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSIO
   rm trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz && \
   strip /usr/local/bin/trivy || true
 
-COPY --from=tfdocs-builder /go/bin/terraform-docs /usr/local/bin/
+COPY --from=builder /go/bin/newres /usr/local/bin/
 
-RUN pwsh -Command \
+RUN pwsh -Command " \
   Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted; \
   Install-Module -Name Az.Accounts -Force -Scope AllUsers; \
   Install-Module -Name Az.ManagedServiceIdentity -Force -Scope AllUsers; \
-  Install-Module -Name Az.Resources -Force -Scope AllUsers
+  Install-Module -Name Az.Resources -Force -Scope AllUsers"
 
 VOLUME ["/var/run/docker.sock"]
 
-CMD ["pwsh"]
+CMD ["sh"]
