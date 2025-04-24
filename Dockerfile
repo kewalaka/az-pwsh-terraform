@@ -87,7 +87,6 @@ RUN tflint --init --enable-plugin=azurerm && \
 
 RUN pwsh -Command " \
   Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted; \
-  Install-Module -Name Az.Accounts -Force -Scope AllUsers; \
   Install-Module -Name Az.ManagedServiceIdentity -Force -Scope AllUsers; \
   Install-Module -Name Az.Resources -Force -Scope AllUsers"
 
