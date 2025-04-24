@@ -21,9 +21,11 @@ jobs:
         docker build -t pr-az-pwsh-terraform:latest .
 
     - name: Scan Docker image with Trivy
-      run: |
-        docker run --rm -v $(pwd):/root/.cache/ aquasec/trivy:latest image \
-          --format sarif --output results.sarif pr-az-pwsh-terraform:latest
+      uses: aquasecurity/trivy-action@0.30.0
+      with:
+        image-ref: 'pr-az-pwsh-terraform:latest'
+        format: 'sarif'
+        output: 'results.sarif'
 
     - name: Upload SARIF file
       uses: github/codeql-action/upload-sarif@v3
