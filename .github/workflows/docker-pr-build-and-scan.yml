@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
@@ -32,7 +36,7 @@ jobs:
       run: |
         if [[ -s trivy-results.txt ]]; then
           {
-            echo "### Security Output"
+            echo "### Trivey Scan Results"
             echo "<details><summary>Click to expand</summary>"
             echo ""
             echo '```terraform'
@@ -49,22 +53,24 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
-          const results = fs.readFileSync('trivy-results.txt', 'utf8');
+          const fullResults = fs.readFileSync('trivy-results.txt', 'utf8');
           
-          // Truncate comment if it's too long (GitHub has a limit)
-          let comment = '';
-          if (results.length > 50000) {
-            comment = results.substring(0, 45000) + '\n\n**Note:** The scan results have been truncated due to length. Please check the workflow logs for full results.';
+          // Extract just the Report Summary section
+          let summarySection = '';
+          const summaryMatch = fullResults.match(/Report Summary\n\n(.*?)\nLegend:/s);
+          
+          if (summaryMatch && summaryMatch[1]) {
+            summarySection = summaryMatch[1].trim();
           } else {
-            comment = results;
+            summarySection = "No vulnerability summary found. Please check the full report in the Actions tab.";
           }
           
-          const header = '## Trivy Security Scan Results\n\n';
-          const footer = `\n\nThis includes critical, high and medium results, for more details, [view the complete workflow logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+          const header = '## Trivy Security Scan Summary\n\n';
+          const footer = '\n\n---\n\n*For detailed results, [view the actions output](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}).*';
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: header + '```\n' + comment + '\n```' + footer
+            body: header + '```\n' + summarySection + '\n```' + footer
           });
