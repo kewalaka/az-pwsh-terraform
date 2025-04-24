@@ -43,7 +43,7 @@ RUN apk add --no-cache \
   wget && \
   rm -rf /var/cache/apk/*
 
-RUN wget https://github.com/PowerShell/PowerShell/releases/download/v${POWERSHELL_VERSION}/powershell-${POWERSHELL_VERSION}-linux-musl-x64.tar.gz && \
+RUN wget -q https://github.com/PowerShell/PowerShell/releases/download/v${POWERSHELL_VERSION}/powershell-${POWERSHELL_VERSION}-linux-musl-x64.tar.gz && \
   mkdir -p /opt/microsoft/powershell/7 && \
   tar -xzf powershell-${POWERSHELL_VERSION}-linux-musl-x64.tar.gz -C /opt/microsoft/powershell/7 && \
   ln -s /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh && \
@@ -51,28 +51,28 @@ RUN wget https://github.com/PowerShell/PowerShell/releases/download/v${POWERSHEL
   rm powershell-${POWERSHELL_VERSION}-linux-musl-x64.tar.gz && \
   rm -rf /opt/microsoft/powershell/7/{LICENSE.txt,ThirdPartyNotices.txt,*.md,test,docs}
 
-RUN curl -L ${GITHUB_CLI_URL} -o /tmp/gh.tar.gz && \
+RUN curl -sL ${GITHUB_CLI_URL} -o /tmp/gh.tar.gz && \
   echo "${GITHUB_CLI_SHA256}  /tmp/gh.tar.gz" | sha256sum -c - && \
   tar -xzf /tmp/gh.tar.gz -C /tmp && \
   mv /tmp/gh_${GITHUB_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/ && \
   rm -rf /tmp/*
 
-RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
+RUN wget -q https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
   unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
   mv terraform /usr/local/bin/ && \
   rm terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
   strip /usr/local/bin/terraform || true
 
-RUN wget https://github.com/terraform-linters/tflint/releases/download/v${TFLINT_VERSION}/tflint_linux_amd64.zip && \
+RUN wget -q https://github.com/terraform-linters/tflint/releases/download/v${TFLINT_VERSION}/tflint_linux_amd64.zip && \
   unzip tflint_linux_amd64.zip && \
   mv tflint /usr/local/bin/ && \
   rm tflint_linux_amd64.zip && \
   strip /usr/local/bin/tflint || true
 
-RUN pip install --no-cache-dir checkov && \
+RUN pip install --no-cache-dir --quiet checkov && \
   find /usr/lib/python3*/ -type d -name "__pycache__" -exec rm -r {} + || true
 
-RUN wget https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz && \
+RUN wget -q https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz && \
   tar -xzf trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz && \
   mv trivy /usr/local/bin/ && \
   rm trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz && \
