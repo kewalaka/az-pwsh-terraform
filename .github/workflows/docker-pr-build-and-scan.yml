@@ -1,0 +1,33 @@
+name: Docker PR Build and Scan
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build Docker image
+      run: |
+        docker build -t pr-az-pwsh-terraform:latest .
+
+    - name: Scan Docker image with Trivy
+      run: |
+        docker run --rm -v $(pwd):/root/.cache/ aquasec/trivy:latest image \
+          --format sarif --output results.sarif pr-az-pwsh-terraform:latest
+
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v3
+      if: success() || failure()
+      with:
+        category: container-security
+        sarif_file: results.sarif
