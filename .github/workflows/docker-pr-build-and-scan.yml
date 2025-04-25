@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
@@ -20,16 +24,53 @@ jobs:
       run: |
         docker build -t pr-az-pwsh-terraform:latest .
 
-    - name: Scan Docker image with Trivy
+    - name: Scan Docker image with Trivy and generate summary
       uses: aquasecurity/trivy-action@0.30.0
       with:
         image-ref: 'pr-az-pwsh-terraform:latest'
-        format: 'sarif'
-        output: 'results.sarif'
+        format: 'table'
+        output: 'trivy-results.txt'
+        severity: 'CRITICAL,HIGH,MEDIUM'
 
-    - name: Upload SARIF file
-      uses: github/codeql-action/upload-sarif@v3
-      if: success() || failure()
+    - name: Publish Trivy to action log
+      run: |
+        if [[ -s trivy-results.txt ]]; then
+          {
+            echo "### Trivey Scan Results"
+            echo "<details><summary>Click to expand</summary>"
+            echo ""
+            echo '```terraform'
+            cat trivy-results.txt
+            echo '```'
+            echo "</details>"
+          } >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Post Trivy scan results to PR
+      uses: actions/github-script@v6
+      if: github.event_name == 'pull_request'
       with:
-        category: container-security
-        sarif_file: results.sarif
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          const fullResults = fs.readFileSync('trivy-results.txt', 'utf8');
+          
+          // Extract just the Report Summary section
+          let summarySection = '';
+          const summaryMatch = fullResults.match(/Report Summary\n\n(.*?)\nLegend:/s);
+          
+          if (summaryMatch && summaryMatch[1]) {
+            summarySection = summaryMatch[1].trim();
+          } else {
+            summarySection = "No vulnerability summary found. Please check the full report in the Actions tab.";
+          }
+          
+          const header = '## Trivy Security Scan Summary\n\n';
+          const footer = `\n\n---\n\n*For detailed results, please [view the actions output](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}).*`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: header + '```\n' + summarySection + '\n```' + footer
+          });

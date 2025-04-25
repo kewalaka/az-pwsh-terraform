@@ -26,6 +26,20 @@ jobs:
       run: |
         docker build -t ${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:latest .
 
+    - name: Scan Docker image with Trivy
+      uses: aquasecurity/trivy-action@0.30.0
+      with:
+        image-ref: 'pr-az-pwsh-terraform:latest'
+        format: 'sarif'
+        output: 'results.sarif'
+  
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v3
+      if: success() || failure()
+      with:
+        category: container-security
+        sarif_file: results.sarif
+
     - name: Push Docker image to Docker Hub
       if: success()
       run: |
