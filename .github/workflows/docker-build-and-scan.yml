@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  security-events: write
+      
 jobs:
   build-scan-deploy:
     runs-on: ubuntu-latest
