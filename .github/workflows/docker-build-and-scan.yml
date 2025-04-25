@@ -29,7 +29,7 @@ jobs:
     - name: Scan Docker image with Trivy
       uses: aquasecurity/trivy-action@0.30.0
       with:
-        image-ref: 'pr-az-pwsh-terraform:latest'
+        image-ref: '${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:latest'
         format: 'sarif'
         output: 'results.sarif'
   
