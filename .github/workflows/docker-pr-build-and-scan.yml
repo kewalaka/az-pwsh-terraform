@@ -109,7 +109,7 @@ jobs:
         else
           echo "Using user API endpoint"
           echo "Finding package ID..."
-          PACKAGE_URL=$(gh api -H "Accept: application/vnd.github+json" "/users/$REPO_OWNER/packages/container" | \
+          PACKAGE_URL=$(gh api -H "Accept: application/vnd.github+json" "/user/packages?package_type=container" | \
             jq -r --arg name "$PACKAGE_NAME" '.[] | select(.name == $name) | .url')
         fi
         
@@ -146,7 +146,7 @@ jobs:
             else
               gh api --method DELETE \
                 -H "Accept: application/vnd.github+json" \
-                "/users/$REPO_OWNER/packages/container/$PACKAGE_NAME/versions/$VERSION_ID" || \
+                "/user/packages/container/$PACKAGE_NAME/versions/$VERSION_ID" || \
                 echo "Failed to delete version $VERSION_ID"
             fi
           done
