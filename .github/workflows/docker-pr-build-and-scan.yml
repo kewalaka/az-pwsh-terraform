@@ -93,7 +93,7 @@ jobs:
         for image in $ghcr_images; do
           if [[ $image != "pr-${{ github.event.pull_request.number }}" && $image =~ ^[a-f0-9]{40}$ ]]; then
             echo "Deleting image: $image"
-            gh api -X DELETE -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/packages/container/az-pwsh-terraform/versions/$image
+            gh api -X DELETE -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/packages/container/az-pwsh-terraform/versions/$image || true
           fi
         done
       env:
