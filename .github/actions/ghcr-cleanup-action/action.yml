@@ -1,0 +1,123 @@
+name: 'GHCR Cleanup Action'
+description: 'Cleans up GitHub Container Registry images'
+inputs:
+  mode:
+    description: 'Cleanup mode: "pr" (clean orphaned SHA tags and untagged images) or "specific" (delete specific SHA)'
+    required: true
+    default: 'pr'
+  specific-sha:
+    description: 'SHA to delete when mode is "specific"'
+    required: false
+  include-untagged:
+    description: 'Whether to clean up untagged images'
+    required: false
+    default: 'true'
+  token:
+    description: 'GitHub token'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Cleanup GHCR images
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        MODE: ${{ inputs.mode }}
+        SPECIFIC_SHA: ${{ inputs.specific-sha }}
+        INCLUDE_UNTAGGED: ${{ inputs.include-untagged }}
+      run: |
+        REPO_OWNER=${GITHUB_REPOSITORY%/*}
+        REPO_NAME=${GITHUB_REPOSITORY##*/}
+        echo "Repository owner: $REPO_OWNER"
+        echo "Repository name: $REPO_NAME"
+
+        PACKAGE_NAME="${REPO_NAME}/${REPO_NAME}"
+        echo "Package name: $PACKAGE_NAME"
+        PACKAGE_NAME_ENCODED="${REPO_NAME}%2F${REPO_NAME}"
+        echo "Package name encoded: $PACKAGE_NAME_ENCODED"
+
+        # The URLs for the GitHub API endpoints are different for organizations and users
+        IS_ORG=$(gh api -H "Accept: application/vnd.github+json" /users/$REPO_OWNER 2>/dev/null | jq -r '.type')
+        echo "Owner type: $IS_ORG"
+
+        if [[ "$IS_ORG" == "Organization" ]]; then
+          LIST_URL="/orgs/$REPO_OWNER/packages?package_type=container"
+          BASE_URL="/orgs/$REPO_OWNER/packages/container"
+        else
+          LIST_URL="/user/packages?package_type=container"
+          BASE_URL="/user/packages/container"
+        fi
+        echo "List URL: $LIST_URL"
+        echo "Base URL for operations: $BASE_URL"
+
+        PACKAGE_URL=$(gh api -H "Accept: application/vnd.github+json" "$LIST_URL" | \
+          jq -r --arg name "$PACKAGE_NAME" '.[] | select(.name == $name) | .url')
+
+        if [[ -z "$PACKAGE_URL" ]]; then
+          echo "Package not found. Exiting."
+          exit 0
+        fi
+
+        echo "Package URL: $PACKAGE_URL"
+
+        VERSIONS_JSON=$(gh api -H "Accept: application/vnd.github+json" "$PACKAGE_URL/versions")
+
+        if [[ "$MODE" == "specific" ]]; then
+          echo "Looking for image with SHA tag: $SPECIFIC_SHA"
+          VERSION_ID=$(echo "$VERSIONS_JSON" | jq -r --arg sha "$SPECIFIC_SHA" '.[] | \
+            select(.metadata.container.tags[] | contains($sha)) | \
+            .id')
+
+          if [[ -z "$VERSION_ID" ]]; then
+            echo "No version found with SHA tag $SPECIFIC_SHA"
+            exit 0
+          fi
+
+          echo "Deleting version $VERSION_ID with SHA tag $SPECIFIC_SHA"
+          gh api --method DELETE --input /dev/null \
+            -H "Accept: application/vnd.github+json" \
+            "$BASE_URL/$PACKAGE_NAME_ENCODED/versions/$VERSION_ID" || \
+            echo "Failed to delete version $VERSION_ID"
+
+        elif [[ "$MODE" == "pr" ]]; then
+          echo "Finding SHA-tagged versions without PR tags to delete..."
+          VERSIONS_TO_DELETE=$(echo "$VERSIONS_JSON" | jq -r '.[] | {id: .id, tags: .metadata.container.tags} |
+            select(any(.tags[]; test("^[a-f0-9]{40}$"))) | 
+            select(all(.tags[]; test("^pr-[0-9]+$") | not)) | .id')
+
+          if [[ -n "$VERSIONS_TO_DELETE" ]]; then
+            echo "Deleting SHA-tagged versions:"
+            echo "$VERSIONS_TO_DELETE" | while read -r VERSION_ID; do
+              echo "  - Deleting version $VERSION_ID"
+              gh api --method DELETE --input /dev/null \
+                -H "Accept: application/vnd.github+json" \
+                "$BASE_URL/$PACKAGE_NAME_ENCODED/versions/$VERSION_ID" || \
+                echo "Failed to delete version $VERSION_ID"
+            done
+          else
+            echo "No SHA-tagged versions to delete."
+          fi
+
+          if [[ "$INCLUDE_UNTAGGED" == "true" ]]; then
+            echo "Finding untagged (dangling) versions to delete..."
+            UNTAGGED_VERSIONS=$(echo "$VERSIONS_JSON" | jq -r '.[] | {id: .id, tags: .metadata.container.tags} |
+              select(.tags | length == 0) | .id')
+
+            if [[ -n "$UNTAGGED_VERSIONS" ]]; then
+              echo "Deleting untagged versions:"
+              echo "$UNTAGGED_VERSIONS" | while read -r VERSION_ID; do
+                echo "  - Deleting untagged version $VERSION_ID"
+                gh api --method DELETE --input /dev/null \
+                  -H "Accept: application/vnd.github+json" \
+                  "$BASE_URL/$PACKAGE_NAME_ENCODED/versions/$VERSION_ID" || \
+                  echo "Failed to delete untagged version $VERSION_ID"
+              done
+            else
+              echo "No untagged versions to delete."
+            fi
+          fi
+
+        else
+          echo "Invalid mode specified: $MODE"
+          exit 1
+        fi
