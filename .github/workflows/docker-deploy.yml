@@ -40,8 +40,42 @@ jobs:
         docker push ${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:latest
 
     - name: Clean up PR image from GHCR
-      run: |
-        gh api -X DELETE -H "Accept: application/vnd.github+json" \
-          /repos/${{ github.repository }}/packages/container/az-pwsh-terraform/versions/${{ github.sha }} || true
       env:
-        GH_TOKEN: ${{ github.token }}                  
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        # Get repository name
+        REPO_NAME=${GITHUB_REPOSITORY##*/}
+        
+        # The package name format in GHCR
+        PACKAGE_NAME="${REPO_NAME}/${REPO_NAME}"
+        PACKAGE_NAME_ENCODED="${REPO_NAME}%2F${REPO_NAME}"
+        
+        echo "Looking for image with SHA tag: ${{ github.sha }}"
+        
+        # Find package URL
+        PACKAGE_URL=$(gh api -H "Accept: application/vnd.github+json" "/user/packages?package_type=container" | \
+          jq -r --arg name "$PACKAGE_NAME" '.[] | select(.name == $name) | .url')
+        
+        if [[ -z "$PACKAGE_URL" ]]; then
+          echo "Package not found. Exiting."
+          exit 0
+        fi
+        
+        # Find the version ID that has the SHA tag
+        VERSION_ID=$(gh api -H "Accept: application/vnd.github+json" "$PACKAGE_URL/versions" | \
+          jq -r --arg sha "${{ github.sha }}" '.[] | 
+            select(.metadata.container.tags[] | contains($sha)) | 
+            .id')
+        
+        if [[ -z "$VERSION_ID" ]]; then
+          echo "No version found with SHA tag ${{ github.sha }}"
+          exit 0
+        fi
+        
+        echo "Deleting version $VERSION_ID with SHA tag ${{ github.sha }}"
+        
+        # Delete the version
+        gh api --method DELETE --input /dev/null \
+          -H "Accept: application/vnd.github+json" \
+          "/user/packages/container/$PACKAGE_NAME_ENCODED/versions/$VERSION_ID" || \
+          echo "Failed to delete version $VERSION_ID"          
