@@ -74,6 +74,7 @@ RUN wget -q https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VER
   rm trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz && \
   strip /usr/local/bin/trivy || true
 
+COPY --from=builder /go/bin/terraform-docs /usr/local/bin/
 COPY --from=builder /go/bin/newres /usr/local/bin/
 
 COPY .tflint.hcl /root/.tflint.hcl

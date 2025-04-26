@@ -1,0 +1,45 @@
+name: Docker Scan and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  security-events: write
+      
+jobs:
+  build-scan-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Pull image from GHCR and tag as latest
+      run: |
+        docker pull ghcr.io/${{ github.repository }}/az-pwsh-terraform:${{ github.sha }}
+        docker tag ghcr.io/${{ github.repository }}/az-pwsh-terraform:${{ github.sha }} ${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:latest
+
+    # the image has been scanned in the PR, we use this to get the SARIF output for the Code Security tab.
+    - name: Scan Docker image with Trivy
+      uses: aquasecurity/trivy-action@0.30.0
+      with:
+        image-ref: '${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:latest'
+        format: 'sarif'
+        output: 'results.sarif'
+        severity: 'CRITICAL,HIGH'
+    
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v3
+      if: success() || failure()
+      with:
+        category: container-security
+        sarif_file: results.sarif        
+
+    - name: Tag and push to Docker Hub
+      run: |
+        docker push ${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:latest
+
+    - name: Clean up PR image from GHCR
+      run: |
+        gh api -X DELETE -H "Accept: application/vnd.github+json" \
+          /repos/${{ github.repository }}/packages/container/az-pwsh-terraform/versions/${{ github.sha }}
