@@ -73,6 +73,20 @@ jobs:
             body: header + '```\n' + summarySection + '\n```' + footer
           });
 
+    - name: Publish Trivy to action log
+      run: |
+        if [[ -s trivy-results.txt ]]; then
+          {
+            echo "### Trivy Scan Results"
+            echo "<details><summary>Click to expand</summary>"
+            echo ""
+            echo '```terraform'
+            cat trivy-results.txt
+            echo '```'
+            echo "</details>"
+          } >> $GITHUB_STEP_SUMMARY
+        fi
+
     - name: Clean up old SHA-tagged images
       run: |
         ghcr_images=$(gh api -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/packages/container/az-pwsh-terraform/versions | jq -r '.[].metadata.container.tags[]')
@@ -82,3 +96,5 @@ jobs:
             gh api -X DELETE -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/packages/container/az-pwsh-terraform/versions/$image
           fi
         done
+      env:
+        GH_TOKEN: ${{ github.token }}        

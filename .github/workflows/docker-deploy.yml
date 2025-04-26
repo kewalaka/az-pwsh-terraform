@@ -43,3 +43,5 @@ jobs:
       run: |
         gh api -X DELETE -H "Accept: application/vnd.github+json" \
           /repos/${{ github.repository }}/packages/container/az-pwsh-terraform/versions/${{ github.sha }}
+      env:
+        GH_TOKEN: ${{ github.token }}                  
