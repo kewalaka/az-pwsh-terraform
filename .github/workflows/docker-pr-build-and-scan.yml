@@ -52,28 +52,25 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs');
-          const bodyFrom = (file) => fs.readFileSync(file, 'utf8');
-
-          const full = bodyFrom('trivy-results.txt');
-          const match = full.match(/Report Summary\n\n([\s\S]*?)\nLegend:/);
-
-          const summary = match ? match[1].trim()
-                                : 'No vulnerability summary found. Please check the full report in the Actions tab.';
-
-          const md = [
-            '## Trivy Security Scan Summary',
-            '```',
-            summary,
-            '```',
-            '',
-            '---',
-            '',
-            `*For detailed results, see the [workflow run](${github.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}).*`
-          ].join('\n');
-
+          const fullResults = fs.readFileSync('trivy-results.txt', 'utf8');
+          
+          let summarySection = '';
+          const summaryMatch = fullResults.match(/Report Summary\n\n(.*?)\nLegend:/s);
+          
+          if (summaryMatch && summaryMatch[1]) {
+            summarySection = summaryMatch[1].trim();
+          } else {
+            summarySection = "No vulnerability summary found. Please check the full report in the Actions tab.";
+          }
+          
+          const header = '## Trivy Security Scan Summary\n\n';
+          const footer = `\n\n---\n\n*For detailed results, please [view the actions output](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}).*`;
+          
           github.rest.issues.createComment({
-            ...context.issue,
-            body: md
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: header + '```\n' + summarySection + '\n```' + footer
           });
 
     - name: Publish Trivy to action log
