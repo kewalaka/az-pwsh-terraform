@@ -1,20 +1,22 @@
 name: GHCR Cleanup Action
 description: Cleans up GitHub Container Registry images
+
 inputs:
   mode:
-    description: Cleanup mode: pr (remove orphaned SHA tags) or specific (delete given SHA)
+    description: "Cleanup mode: pr (remove orphaned SHA tags) or specific (delete given SHA)"
     required: true
     default: pr
   specific-sha:
-    description: SHA to delete when mode is specific
+    description: "SHA to delete when mode is specific"
     required: false
   include-untagged:
-    description: Whether to delete untagged images
+    description: "Whether to delete untagged images"
     required: false
     default: 'true'
   token:
-    description: GitHub token
+    description: "GitHub token"
     required: true
+
 runs:
   using: composite
   steps:
@@ -23,8 +25,8 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.token }}
         MODE: ${{ inputs.mode }}
-        SPECIFIC_SHA: ${{ inputs.specific-sha }}
-        INCLUDE_UNTAGGED: ${{ inputs.include-untagged }}
+        SPECIFIC_SHA: ${{ inputs['specific-sha'] }}
+        INCLUDE_UNTAGGED: ${{ inputs['include-untagged'] }}
       run: |
         set -euo pipefail
 
@@ -40,7 +42,6 @@ runs:
         fi
 
         PACKAGE_URL="$BASE_URL/$PACKAGE"
-
         gh api "$PACKAGE_URL" >/dev/null 2>&1 || { echo "Package not found"; exit 0; }
 
         if [[ "$MODE" == "specific" && -z "${SPECIFIC_SHA:-}" ]]; then
