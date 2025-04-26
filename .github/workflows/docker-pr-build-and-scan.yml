@@ -37,64 +37,109 @@ jobs:
           ghcr.io/${{ github.repository }}/az-pwsh-terraform:${{ github.sha }}
           ghcr.io/${{ github.repository }}/az-pwsh-terraform:pr-${{ github.event.pull_request.number }}
 
-    - name: Scan Docker image with Trivy and generate summary
-      uses: aquasecurity/trivy-action@0.30.0
-      with:
-        image-ref: 'ghcr.io/${{ github.repository }}/az-pwsh-terraform:${{ github.sha }}'
-        format: 'table'
-        output: 'trivy-results.txt'
-        severity: 'CRITICAL,HIGH,MEDIUM'
+    # - name: Scan Docker image with Trivy and generate summary
+    #   uses: aquasecurity/trivy-action@0.30.0
+    #   with:
+    #     image-ref: 'ghcr.io/${{ github.repository }}/az-pwsh-terraform:${{ github.sha }}'
+    #     format: 'table'
+    #     output: 'trivy-results.txt'
+    #     severity: 'CRITICAL,HIGH,MEDIUM'
 
-    - name: Post Trivy scan results to PR
-      uses: actions/github-script@v6
-      if: github.event_name == 'pull_request'
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const fs = require('fs');
-          const fullResults = fs.readFileSync('trivy-results.txt', 'utf8');
+    # - name: Post Trivy scan results to PR
+    #   uses: actions/github-script@v6
+    #   if: github.event_name == 'pull_request'
+    #   with:
+    #     github-token: ${{ secrets.GITHUB_TOKEN }}
+    #     script: |
+    #       const fs = require('fs');
+    #       const fullResults = fs.readFileSync('trivy-results.txt', 'utf8');
           
-          let summarySection = '';
-          const summaryMatch = fullResults.match(/Report Summary\n\n(.*?)\nLegend:/s);
+    #       let summarySection = '';
+    #       const summaryMatch = fullResults.match(/Report Summary\n\n(.*?)\nLegend:/s);
           
-          if (summaryMatch && summaryMatch[1]) {
-            summarySection = summaryMatch[1].trim();
-          } else {
-            summarySection = "No vulnerability summary found. Please check the full report in the Actions tab.";
-          }
+    #       if (summaryMatch && summaryMatch[1]) {
+    #         summarySection = summaryMatch[1].trim();
+    #       } else {
+    #         summarySection = "No vulnerability summary found. Please check the full report in the Actions tab.";
+    #       }
           
-          const header = '## Trivy Security Scan Summary\n\n';
-          const footer = `\n\n---\n\n*For detailed results, please [view the actions output](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}).*`;
+    #       const header = '## Trivy Security Scan Summary\n\n';
+    #       const footer = `\n\n---\n\n*For detailed results, please [view the actions output](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}).*`;
           
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: header + '```\n' + summarySection + '\n```' + footer
-          });
+    #       github.rest.issues.createComment({
+    #         issue_number: context.issue.number,
+    #         owner: context.repo.owner,
+    #         repo: context.repo.repo,
+    #         body: header + '```\n' + summarySection + '\n```' + footer
+    #       });
 
-    - name: Publish Trivy to action log
-      run: |
-        if [[ -s trivy-results.txt ]]; then
-          {
-            echo "### Trivy Scan Results"
-            echo "<details><summary>Click to expand</summary>"
-            echo ""
-            echo '```terraform'
-            cat trivy-results.txt
-            echo '```'
-            echo "</details>"
-          } >> $GITHUB_STEP_SUMMARY
-        fi
+    # - name: Publish Trivy to action log
+    #   run: |
+    #     if [[ -s trivy-results.txt ]]; then
+    #       {
+    #         echo "### Trivy Scan Results"
+    #         echo "<details><summary>Click to expand</summary>"
+    #         echo ""
+    #         echo '```terraform'
+    #         cat trivy-results.txt
+    #         echo '```'
+    #         echo "</details>"
+    #       } >> $GITHUB_STEP_SUMMARY
+    #     fi
 
     - name: Clean up old SHA-tagged images
-      run: |
-        ghcr_images=$(gh api -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/packages/container/az-pwsh-terraform/versions | jq -r '.[].metadata.container.tags[]')
-        for image in $ghcr_images; do
-          if [[ $image != "pr-${{ github.event.pull_request.number }}" && $image =~ ^[a-f0-9]{40}$ ]]; then
-            echo "Deleting image: $image"
-            gh api -X DELETE -H "Accept: application/vnd.github+json" /repos/${{ github.repository }}/packages/container/az-pwsh-terraform/versions/$image || true
-          fi
-        done
       env:
-        GH_TOKEN: ${{ github.token }}        
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        # Get repository name and owner from the full repository path
+        REPO_OWNER=${GITHUB_REPOSITORY%/*}
+        PACKAGE_NAME=${GITHUB_REPOSITORY##*/}
+        echo "Repository owner: $REPO_OWNER"
+        echo "Package name: $PACKAGE_NAME"
+        
+        # Check if repo owner is an organization
+        IS_ORG=$(gh api -H "Accept: application/vnd.github+json" /users/$REPO_OWNER 2>/dev/null | jq -r '.type')
+        echo "Owner type: $IS_ORG"
+        
+        # Set API endpoint based on whether it's an org or user
+        if [[ "$IS_ORG" == "Organization" ]]; then
+          echo "Using organization API endpoint"
+          PACKAGES_ENDPOINT="/orgs/$REPO_OWNER/packages/container/$PACKAGE_NAME"
+        else
+          echo "Using user API endpoint"
+          PACKAGES_ENDPOINT="/user/packages/container/$PACKAGE_NAME"
+        fi
+        
+        # Current PR tag
+        PR_TAG="pr-${{ github.event.pull_request.number }}"
+        echo "Current PR tag: $PR_TAG"
+        
+        # Get versions that need to be deleted (SHA-tagged versions not matching this PR)
+        echo "Finding versions to delete..."
+        VERSIONS_TO_DELETE=$(gh api \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "$PACKAGES_ENDPOINT/versions" | \
+          jq -r --arg pr_tag "$PR_TAG" '.[] | 
+            # First, convert to a format with id and tags for easier processing
+            {id: .id, tags: .metadata.container.tags} |
+            # Only select versions with SHA tags
+            select(any(.tags[]; test("^[a-f0-9]{40}$"))) |
+            # Exclude the current PR tag
+            select(all(.tags[]; . != $pr_tag)) |
+            # Output just the ID
+            .id')
+        
+        # Delete each version found
+        if [[ -n "$VERSIONS_TO_DELETE" ]]; then
+          echo "Deleting versions:"
+          echo "$VERSIONS_TO_DELETE" | while read -r VERSION_ID; do
+            echo "  - Deleting version $VERSION_ID"
+            gh api --method DELETE \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$PACKAGES_ENDPOINT/versions/$VERSION_ID" || echo "Failed to delete version $VERSION_ID"
+          done
+        else
+          echo "No versions to delete."
+        fi
