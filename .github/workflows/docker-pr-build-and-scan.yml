@@ -101,44 +101,54 @@ jobs:
         IS_ORG=$(gh api -H "Accept: application/vnd.github+json" /users/$REPO_OWNER 2>/dev/null | jq -r '.type')
         echo "Owner type: $IS_ORG"
         
-        # Set API endpoint based on whether it's an org or user
         if [[ "$IS_ORG" == "Organization" ]]; then
           echo "Using organization API endpoint"
-          PACKAGES_ENDPOINT="/orgs/$REPO_OWNER/packages/container/$PACKAGE_NAME"
+          echo "Finding package ID..."
+          PACKAGE_URL=$(gh api -H "Accept: application/vnd.github+json" "/orgs/$REPO_OWNER/packages/container" | \
+            jq -r --arg name "$PACKAGE_NAME" '.[] | select(.name == $name) | .url')
         else
           echo "Using user API endpoint"
-          PACKAGES_ENDPOINT="/user/packages/container/$PACKAGE_NAME"
+          echo "Finding package ID..."
+          PACKAGE_URL=$(gh api -H "Accept: application/vnd.github+json" "/users/$REPO_OWNER/packages/container" | \
+            jq -r --arg name "$PACKAGE_NAME" '.[] | select(.name == $name) | .url')
         fi
         
-        # Current PR tag
-        PR_TAG="pr-${{ github.event.pull_request.number }}"
-        echo "Current PR tag: $PR_TAG"
+        if [[ -z "$PACKAGE_URL" ]]; then
+          echo "Package not found. Exiting."
+          exit 0
+        fi
         
-        # Get versions that need to be deleted (SHA-tagged versions not matching this PR)
+        echo "Package URL: $PACKAGE_URL"
+        
         echo "Finding versions to delete..."
-        VERSIONS_TO_DELETE=$(gh api \
-          -H "Accept: application/vnd.github+json" \
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          "$PACKAGES_ENDPOINT/versions" | \
-          jq -r --arg pr_tag "$PR_TAG" '.[] | 
-            # First, convert to a format with id and tags for easier processing
-            {id: .id, tags: .metadata.container.tags} |
-            # Only select versions with SHA tags
-            select(any(.tags[]; test("^[a-f0-9]{40}$"))) |
-            # Exclude the current PR tag
-            select(all(.tags[]; . != $pr_tag)) |
-            # Output just the ID
-            .id')
+        VERSIONS_JSON=$(gh api -H "Accept: application/vnd.github+json" "$PACKAGE_URL/versions")
+        
+        VERSIONS_TO_DELETE=$(echo "$VERSIONS_JSON" | jq -r '.[] | 
+          # Extract id and tags
+          {id: .id, tags: .metadata.container.tags} |
+          # Only select versions with SHA tags
+          select(any(.tags[]; test("^[a-f0-9]{40}$"))) |
+          # Exclude any version that has a PR tag
+          select(all(.tags[]; test("^pr-[0-9]+$") | not)) |
+          # Output just the ID
+          .id')
         
         # Delete each version found
         if [[ -n "$VERSIONS_TO_DELETE" ]]; then
           echo "Deleting versions:"
           echo "$VERSIONS_TO_DELETE" | while read -r VERSION_ID; do
             echo "  - Deleting version $VERSION_ID"
-            gh api --method DELETE \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "$PACKAGES_ENDPOINT/versions/$VERSION_ID" || echo "Failed to delete version $VERSION_ID"
+            if [[ "$IS_ORG" == "Organization" ]]; then
+              gh api --method DELETE \
+                -H "Accept: application/vnd.github+json" \
+                "/orgs/$REPO_OWNER/packages/container/$PACKAGE_NAME/versions/$VERSION_ID" || \
+                echo "Failed to delete version $VERSION_ID"
+            else
+              gh api --method DELETE \
+                -H "Accept: application/vnd.github+json" \
+                "/users/$REPO_OWNER/packages/container/$PACKAGE_NAME/versions/$VERSION_ID" || \
+                echo "Failed to delete version $VERSION_ID"
+            fi
           done
         else
           echo "No versions to delete."
