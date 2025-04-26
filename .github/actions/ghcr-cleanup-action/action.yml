@@ -50,6 +50,13 @@ runs:
         echo "List URL: $LIST_URL"
         echo "Base URL for operations: $BASE_URL"
 
+        LIST_RESPONSE=$(gh api -H "Accept: application/vnd.github+json" "$LIST_URL" 2>&1)
+        if [[ "$LIST_RESPONSE" == *"Invalid argument"* || "$LIST_RESPONSE" == *"HTTP 400"* ]]; then
+          echo "Error calling GitHub API: $LIST_RESPONSE"
+          echo "URL was: $LIST_URL"
+          exit 1
+        fi
+
         PACKAGE_URL=$(gh api -H "Accept: application/vnd.github+json" "$LIST_URL" | \
           jq -r --arg name "$PACKAGE_NAME" '.[] | select(.name == $name) | .url')
 
@@ -64,8 +71,8 @@ runs:
 
         if [[ "$MODE" == "specific" ]]; then
           echo "Looking for image with SHA tag: $SPECIFIC_SHA"
-          VERSION_ID=$(echo "$VERSIONS_JSON" | jq -r --arg sha "$SPECIFIC_SHA" '.[] | \
-            select(.metadata.container.tags[] | contains($sha)) | \
+          VERSION_ID=$(echo "$VERSIONS_JSON" | jq -r --arg sha "$SPECIFIC_SHA" '.[] | 
+            select(.metadata.container.tags[] | contains($sha)) | 
             .id')
 
           if [[ -z "$VERSION_ID" ]]; then
