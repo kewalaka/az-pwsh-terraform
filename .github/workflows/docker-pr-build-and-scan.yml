@@ -39,6 +39,14 @@ jobs:
         sbom: true
         provenance: false
 
+    - name: Scan Docker image with Trivy and generate summary
+      uses: aquasecurity/trivy-action@0.30.0
+      with:
+        image-ref: 'ghcr.io/${{ github.repository }}/az-pwsh-terraform:${{ github.sha }}'
+        format: 'table'
+        output: 'trivy-results.txt'
+        severity: 'CRITICAL,HIGH,MEDIUM'
+
     - name: Post Trivy scan results to PR
       uses: actions/github-script@v6
       if: github.event_name == 'pull_request'
