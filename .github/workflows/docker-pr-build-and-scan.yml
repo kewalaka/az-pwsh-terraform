@@ -101,9 +101,8 @@ jobs:
       # ──────────────────────────────────────────────────────────────
       # clean up old images
       # ──────────────────────────────────────────────────────────────
-      # - name: Clean up old images
-      #   uses: ./.github/actions/ghcr-cleanup-action
-      #   with:
-      #     mode: 'pr'
-      #     include-untagged: 'true'
-      #     token: ${{ github.token }}
+      - name: Clean up old images
+        uses: ./.github/actions/ghcr-cleanup-action
+        with:
+          mode: 'pr'
+          token: ${{ github.token }}

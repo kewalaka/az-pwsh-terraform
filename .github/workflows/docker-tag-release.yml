@@ -56,8 +56,7 @@ jobs:
       - name: Attach SBOM to Docker image
         run: |
           COSIGN_EXPERIMENTAL=1
-          cosign download sbom ghcr.io/${{ github.repository }}:pr-${{ env.PR_NUMBER }} \
-            - > sbom.cdx.json
+          cosign download sbom ghcr.io/${{ github.repository }}:pr-${{ env.PR_NUMBER }} > sbom.cdx.json
           cosign attach sbom --sbom sbom.cdx.json \
             ${{ secrets.DOCKER_USERNAME }}/${{ env.REPO_NAME }}:${{ env.VERSION }}
           
