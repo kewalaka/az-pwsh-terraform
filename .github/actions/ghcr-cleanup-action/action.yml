@@ -32,7 +32,7 @@ runs:
 
         REPO_OWNER=${GITHUB_REPOSITORY%/*}
         REPO_NAME=${GITHUB_REPOSITORY##*/}
-        PACKAGE="${REPO_NAME}%2F${REPO_NAME}"
+        PACKAGE="${REPO_NAME}"
 
         IS_ORG=$(gh api /users/$REPO_OWNER -q .type 2>/dev/null || echo User)
         if [[ "$IS_ORG" == "Organization" ]]; then
