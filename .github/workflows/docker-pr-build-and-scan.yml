@@ -99,18 +99,6 @@ jobs:
           fi
 
       # ──────────────────────────────────────────────────────────────
-      # save and upload image digest
-      # ──────────────────────────────────────────────────────────────
-      - name: Save image digest
-        run: echo "DIGEST=${{ steps.build.outputs.digest }}" > image-digest.txt
-
-      - name: Upload image digest
-        uses: actions/upload-artifact@v3
-        with:
-          name: image-digest
-          path: image-digest.txt
-
-      # ──────────────────────────────────────────────────────────────
       # clean up old images
       # ──────────────────────────────────────────────────────────────
       - name: Clean up old images
