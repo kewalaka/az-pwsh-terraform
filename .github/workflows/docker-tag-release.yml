@@ -3,37 +3,51 @@ name: Docker Tag Release
 on:
   push:
     tags:
-      - 'v[0-9]+\.[0-9]+\.[0-9]+.*'  # Matches semantic versioning tags like v1.2.3, v1.2.3-beta, etc.
+      - 'v[0-9]+\.[0-9]+\.[0-9]+.*'
+
+permissions:
+  contents: read
+  packages: read        # needed to pull from GHCR
 
 jobs:
-  build-and-push:
+  re-tag:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Extract version from tag
-      id: get_version
-      run: |
-        # Strip the 'v' prefix from the tag
-        VERSION=${GITHUB_REF#refs/tags/v}
-        echo "VERSION=$VERSION" >> $GITHUB_ENV
-        echo "Version extracted: $VERSION"
+      - name: Extract version from tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
 
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+      # GHCR login to pull the digest
+      - name: Log in to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Pull image from GHCR
-      run: |
-        docker pull ghcr.io/${{ github.repository }}/az-pwsh-terraform:${{ github.sha }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Tag and push Docker image to Docker Hub
-      run: |
-        docker tag ghcr.io/${{ github.repository }}/az-pwsh-terraform:${{ github.sha }} ${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:${{ env.VERSION }}
-        docker tag ghcr.io/${{ github.repository }}/az-pwsh-terraform:${{ github.sha }} ${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:latest
-        docker push ${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:${{ env.VERSION }}
-        docker push ${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:latest
+      - name: Pull digest from GHCR
+        run: docker pull ghcr.io/${{ github.repository }}/az-pwsh-terraform@${{ github.sha }}
+
+      - name: Tag digest with version
+        run: |
+          docker tag ghcr.io/${{ github.repository }}/az-pwsh-terraform@${{ github.sha }} \
+                     ${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:${{ env.VERSION }}
+
+      # optional – copy SBOM across
+      - name: Copy SBOM to Docker Hub
+        uses: sigstore/cosign-installer@v3
+      - run: |
+          COSIGN_EXPERIMENTAL=1
+          cosign attach sbom \
+            --sbom $(cosign download sbom ghcr.io/${{ github.repository }}/az-pwsh-terraform@${{ github.sha }}) \
+            ${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:${{ env.VERSION }}
+
+      - name: Push version tag to Docker Hub
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/az-pwsh-terraform:${{ env.VERSION }}

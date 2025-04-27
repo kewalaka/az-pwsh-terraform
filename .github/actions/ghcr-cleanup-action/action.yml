@@ -48,11 +48,13 @@ runs:
           echo "::error::specific-sha input required when mode=specific"
           exit 1
         fi
+        echo "Checking for packages to cleanup at: $PACKAGE_URL"
 
         VERSIONS_JSON=$(gh api --paginate "$PACKAGE_URL/versions" | jq -s 'add')
 
         delete() {
           gh api -X DELETE "$PACKAGE_URL/versions/$1" --silent || echo "Failed to delete $1"
+          echo "Deleted version $1"
         }
 
         if [[ "$MODE" == "specific" ]]; then
