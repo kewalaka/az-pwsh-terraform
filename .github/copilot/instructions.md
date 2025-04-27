@@ -101,8 +101,8 @@ This workflow is triggered on semantic versioning tags (e.g., `v1.2.3`) and is r
    - Each workflow uses the least privileges required to perform its tasks (e.g., `contents: read`, `security-events: write`, `packages: write`).
 
 5. **Error Handling**:
-   - Cleanup steps use `|| true` to ensure that workflows do not fail if an image or tag does not exist.
+   - Cleanup steps use appropriate error handling to ensure that the workflows do not fail if an image or tag does not exist.
 
 ---
 
-This document serves as a reference for understanding the design and implementation of the CI/CD workflows in this repository. If changes are made to the workflows, this document should be updated accordingly.
+This document serves as a reference for understanding the design and implementation of the CI/CD workflows in this repository. If changes are made to the workflows, please update this document accordingly.

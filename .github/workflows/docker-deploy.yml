@@ -75,19 +75,6 @@ jobs:
           sarif_file: results.sarif
 
       # ──────────────────────────────────────────────────────────────
-      # copy SBOM to Docker Hub
-      # ──────────────────────────────────────────────────────────────
-      - name: Install cosign
-        uses: sigstore/cosign-installer@v3
-
-      - name: Re-attach SBOM to Docker Hub image
-        run: |
-          COSIGN_EXPERIMENTAL=1
-          cosign download sbom ghcr.io/${{ github.repository }}:pr-${{ env.PR_NUMBER }} > sbom.cdx.json
-          cosign attach sbom --sbom sbom.cdx.json \
-            ${{ secrets.DOCKER_USERNAME }}/${{ env.REPO_NAME }}:latest
-
-      # ──────────────────────────────────────────────────────────────
       # push & cleanup
       # ──────────────────────────────────────────────────────────────
       - name: Push image to Docker Hub
