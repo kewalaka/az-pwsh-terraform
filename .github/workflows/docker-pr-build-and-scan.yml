@@ -105,5 +105,4 @@ jobs:
         uses: ./.github/actions/ghcr-cleanup-action
         with:
           mode: 'pr'
-          include-untagged: 'true'
           token: ${{ github.token }}

@@ -83,8 +83,7 @@ jobs:
       - name: Re-attach SBOM to Docker Hub image
         run: |
           COSIGN_EXPERIMENTAL=1
-          cosign download sbom ghcr.io/${{ github.repository }}:pr-${{ env.PR_NUMBER }} \
-            - > sbom.cdx.json
+          cosign download sbom ghcr.io/${{ github.repository }}:pr-${{ env.PR_NUMBER }} > sbom.cdx.json
           cosign attach sbom --sbom sbom.cdx.json \
             ${{ secrets.DOCKER_USERNAME }}/${{ env.REPO_NAME }}:latest
 
@@ -98,5 +97,4 @@ jobs:
         uses: ./.github/actions/ghcr-cleanup-action
         with:
           mode: pr
-          include-untagged: 'false'
           token: ${{ secrets.GITHUB_TOKEN }}

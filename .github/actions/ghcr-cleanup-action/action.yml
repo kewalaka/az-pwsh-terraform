@@ -9,10 +9,6 @@ inputs:
   specific-sha:
     description: "SHA to delete when mode is specific"
     required: false
-  include-untagged:
-    description: "Whether to delete untagged images"
-    required: false
-    default: 'true'
   token:
     description: "GitHub token"
     required: true
@@ -69,8 +65,45 @@ runs:
             select(all(.metadata.container.tags[]?; test("^pr-[0-9]+$") | not)) |
             .id' <<<"$VERSIONS_JSON" | while read -r id; do delete "$id"; done
 
-          if [[ "$INCLUDE_UNTAGGED" == "true" ]]; then
-            jq -r '.[] | select(.metadata.container.tags|length==0) | .id' \
-              <<<"$VERSIONS_JSON" | while read -r id; do delete "$id"; done
-          fi
+          echo "Looking for orphaned SHA256 tags"
+          
+          # There isn't an obvious way to do this, so we use a heuristic (creation time within TOLERANCE seconds)
+          TOLERANCE=10
+          
+          # Loop over each version from VERSIONS_JSON
+          echo "$VERSIONS_JSON" | jq -c '.[]' | while read -r version; do
+            version_id=$(echo "$version" | jq -r '.id')
+            created_at=$(echo "$version" | jq -r '.created_at')
+            epoch_created=$(date -d "$created_at" +%s)
+            tags=$(echo "$version" | jq -r '.metadata.container.tags | join(" ")')
+            
+            # If this version already has a friendly PR tag, skip deleting it.
+            if echo "$tags" | grep -q -E "pr-[0-9]+"; then
+              echo "Skipping version $version_id: has friendly tag(s): $tags"
+              continue
+            fi
+
+            # Check if any version in VERSIONS_JSON has a PR tag and nearly the same creation time.
+            pr_nearby=$(echo "$VERSIONS_JSON" | jq -r --arg tolerance "$TOLERANCE" --arg created_at "$created_at" '
+              .[] | select(.metadata.container.tags[]? | test("^pr-[0-9]+$"))
+                  | .created_at' | 
+              while read -r pr_created; do
+                pr_epoch=$(date -d "$pr_created" +%s)
+                diff=$(( epoch_created > pr_epoch ? epoch_created - pr_epoch : pr_epoch - epoch_created ))
+                if [[ $diff -le $TOLERANCE ]]; then
+                  echo "found"
+                  break
+                fi
+              done | head -n1)
+          
+            if [[ "$pr_nearby" == "found" ]]; then
+              echo "Skipping version $version_id: a nearby PR-tagged version exists (created at $created_at)"
+            else
+              echo "Deleting version $version_id (created at $created_at): no recent PR version detected"
+              delete "$version_id"
+            fi
+          done
+
         fi
+        echo "Cleanup complete."
+        exit 0
