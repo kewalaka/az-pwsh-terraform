@@ -102,6 +102,6 @@ jobs:
       # clean up old images
       # ──────────────────────────────────────────────────────────────
       - name: Clean up old images
-        uses: ./.github/actions/ghcr-cleanup-action-pr-build
+        uses: ./.github/actions/ghcr-cleanup-unreferenced
         with:
           token: ${{ github.token }}

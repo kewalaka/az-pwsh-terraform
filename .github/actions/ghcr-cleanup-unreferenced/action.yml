@@ -1,0 +1,73 @@
+name: GHCR Cleanup Unreferenced SHAs
+
+description: Delete images tagged only by SHA (unreferenced by any PR tag)
+
+inputs:
+  token:
+    description: GitHub token
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Delete unreferenced SHA images
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        REPO_OWNER=${GITHUB_REPOSITORY%/*}
+        REPO_NAME=${GITHUB_REPOSITORY##*/}
+        PACKAGE="$REPO_NAME"
+
+        IS_ORG=$(gh api /users/$REPO_OWNER -q .type 2>/dev/null || echo User)
+        if [[ "$IS_ORG" == "Organization" ]]; then
+          BASE_URL="/orgs/$REPO_OWNER/packages/container"
+        else
+          BASE_URL="/user/packages/container"
+        fi
+        
+        PACKAGE_URL="$BASE_URL/$PACKAGE"
+        VERSIONS_JSON=$(gh api --paginate "$PACKAGE_URL/versions" | jq -s 'add')
+        
+        delete() {
+          gh api -X DELETE "$PACKAGE_URL/versions/$1" --silent || echo "Failed to delete $1"
+          echo "Deleted version $1"
+        }
+
+        echo "Deleting unreferenced SHA40 images (commit tags with no PR tag)"
+        jq -r '
+          .[] |
+          select(any(.metadata.container.tags[]?; test("^[a-f0-9]{40}$"))) |
+          select(all(.metadata.container.tags[]?; test("^pr-[0-9]+$") | not)) |
+          .id' <<<"$VERSIONS_JSON" | while read -r id; do
+            delete "$id"
+        done
+        
+        echo "Looking for unreferenced SHA256 images (created near no PR tag, tolerance is in seconds)"
+        TOLERANCE=10
+        for version in $(jq -c '.[]' <<<"$VERSIONS_JSON"); do
+          version_id=$(jq -r '.id' <<<"$version")
+          created_at=$(jq -r '.created_at' <<<"$version")
+          epoch_created=$(date -d "$created_at" +%s)
+          tags=$(jq -r '.metadata.container.tags | join(" ")' <<<"$version")
+          if echo "$tags" | grep -q -E "pr-[0-9]+"; then
+            continue
+          fi
+          pr_nearby=""
+          while read -r pr_created; do
+            pr_epoch=$(date -d "$pr_created" +%s)
+            diff=$(( epoch_created > pr_epoch ? epoch_created - pr_epoch : pr_epoch - epoch_created ))
+            if [[ $diff -le $TOLERANCE ]]; then
+              pr_nearby=1
+              break
+            fi
+          done < <(jq -r '.[] | select(.metadata.container.tags[]? | test("^pr-[0-9]+$")) | .created_at' <<<"$VERSIONS_JSON")
+          if [[ -n "$pr_nearby" ]]; then
+            continue
+          fi
+          delete "$version_id"
+        done
+        
+        echo "Unreferenced SHA cleanup complete."
+        exit 0

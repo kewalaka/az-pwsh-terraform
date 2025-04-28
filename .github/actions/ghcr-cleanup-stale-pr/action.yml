@@ -1,0 +1,69 @@
+name: GHCR Stale PR Cleanup
+description: >
+  Remove GHCR images tagged pr-<n> for PRs that are no longer open,
+  then clean up unreferenced SHA images.
+
+inputs:
+  token:
+    description: "GitHub token"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare repo & list open PRs
+      shell: bash
+      run: |
+        set -euo pipefail
+        REPO_OWNER=${GITHUB_REPOSITORY%/*}
+        REPO_NAME=${GITHUB_REPOSITORY##*/}
+        PACKAGE="$REPO_NAME"
+        IS_ORG=$(gh api /users/$REPO_OWNER -q .type 2>/dev/null || echo User)
+        if [[ "$IS_ORG" == "Organization" ]]; then
+          BASE_URL="/orgs/$REPO_OWNER/packages/container"
+        else
+          BASE_URL="/user/packages/container"
+        fi
+        PACKAGE_URL="$BASE_URL/$PACKAGE"
+        gh api "$PACKAGE_URL" >/dev/null 2>&1 || { echo "No container package found, skipping"; exit 0; }
+
+        # fetch open PR numbers
+        OPEN_PRS=$(gh pr list --state open --json number \
+                  --jq '.[].number' | paste -sd " " -)
+        echo "OPEN_PRS=$OPEN_PRS" >> $GITHUB_ENV
+
+        # fetch all versions once
+        VERSIONS_JSON=$(gh api --paginate "$PACKAGE_URL/versions" | jq -s 'add')
+        echo "$VERSIONS_JSON" > versions.json
+
+        delete() {
+          gh api -X DELETE "$PACKAGE_URL/versions/$1" --silent \
+            && echo "Deleted version $1" \
+            || echo "Failed to delete version $1"
+        }
+        # make delete() available in later steps
+        export -f delete
+
+    - name: Delete stale PR images
+      shell: bash
+      run: |
+        echo "Deleting PR-tagged images not in open PR list: $OPEN_PRS"
+        for version in $(jq -c '.[]' versions.json); do
+          id=$(echo "$version" | jq -r '.id')
+          tags=$(echo "$version" | jq -r '.metadata.container.tags | @sh')
+          for tag in $tags; do
+            if [[ "$tag" =~ ^pr-([0-9]+)$ ]]; then
+              prnum="${BASH_REMATCH[1]}"
+              if ! echo " $OPEN_PRS " | grep -q " $prnum "; then
+                echo "→ Removing stale PR image $tag (version $id)"
+                delete "$id"
+                break
+              fi
+            fi
+          done
+        done
+
+    - name: Cleanup unreferenced SHA images
+      uses: ../ghcr-cleanup-unreferenced
+      with:
+        token: ${{ inputs.token }}
