@@ -28,9 +28,7 @@ jobs:
         run: |
           pr_json=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/pulls --jq '.[0]')
           pr_number=$(echo "$pr_json" | jq -r '.number')
-          pr_sha=$(echo "$pr_json" | jq -r '.head.sha')
           echo "PR_NUMBER=$pr_number" >> $GITHUB_ENV
-          echo "PR_SHA=$pr_sha" >> $GITHUB_ENV
           echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
       # ──────────────────────────────────────────────────────────────
@@ -52,12 +50,11 @@ jobs:
       # ──────────────────────────────────────────────────────────────
       # pull image built in PR job, retag
       # ──────────────────────────────────────────────────────────────
-      - name: Pull image from GHCR (by SHA)
-        run: docker pull ghcr.io/${{ github.repository }}:${{ env.PR_SHA }}
-
+      - name: Pull image from GHCR (by PR number)
+        run: docker pull ghcr.io/${{ github.repository }}:pr-${{ env.PR_NUMBER }}
+      
       - name: Tag and push release version
         run: |
-          docker tag ghcr.io/${{ github.repository }}:${{ env.PR_SHA }} \
-                     ${{ secrets.DOCKER_USERNAME }}/${{ env.REPO_NAME }}:${{ env.VERSION }}
+          docker tag ghcr.io/${{ github.repository }}:pr-${{ env.PR_NUMBER }} \
+                    ${{ secrets.DOCKER_USERNAME }}/${{ env.REPO_NAME }}:${{ env.VERSION }}
           docker push ${{ secrets.DOCKER_USERNAME }}/${{ env.REPO_NAME }}:${{ env.VERSION }}
-

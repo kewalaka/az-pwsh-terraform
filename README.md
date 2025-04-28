@@ -1,8 +1,23 @@
 # az-pwsh-terraform Docker Image
 
+![Build Status](https://github.com/kewalaka/az-pwsh-terraform/actions/workflows/docker-pr-build-and-scan.yml/badge.svg)
+
 ## Purpose
 
 The `az-pwsh-terraform` Docker image contains Terraform, PowerShell, TFLint, Trivy, and other useful tools for managing and securing cloud infrastructure on Azure.
+
+It uses GitHub Actions to automatically:
+
+1. Build and scan images when PRs are created (`.github/workflows/docker-pr-build-and-scan.yml`)
+1. Deploy to Docker Hub when PRs are merged to main (`.github/workflows/docker-main-build-and-push.yml`)
+1. Create versioned releases when version tags are pushed (`.github/workflows/docker-release.yml`)
+
+## Getting started
+
+Set up the following secrets in your GitHub repository settings:
+
+- DOCKER_USERNAME: Your Docker Hub username
+- DOCKER_PASSWORD: Your Docker Hub [access token](https://app.docker.com/settings/personal-access-tokens) or password.
 
 ## Tools Included
 
