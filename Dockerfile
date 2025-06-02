@@ -6,7 +6,7 @@ ARG NEWRES_VERSION=a535fe92925845dfa033a3db71adf7d65511cbf3
 RUN go install github.com/lonegunmanb/newres/v3@$NEWRES_VERSION
 
 # run
-FROM alpine:3.21
+FROM alpine:3.22
 
 ARG POWERSHELL_VERSION=7.5.0
 ARG GITHUB_CLI_VERSION=2.71.0
