@@ -9,8 +9,8 @@ The `az-pwsh-terraform` Docker image contains Terraform, PowerShell, TFLint, Tri
 It uses GitHub Actions to automatically:
 
 1. Build and scan images when PRs are created (`.github/workflows/docker-pr-build-and-scan.yml`)
-1. Deploy to Docker Hub when PRs are merged to main (`.github/workflows/docker-main-build-and-push.yml`)
-1. Create versioned releases when version tags are pushed (`.github/workflows/docker-release.yml`)
+1. Deploy the promoted `latest` image to Docker Hub when changes are merged to main (`.github/workflows/docker-deploy.yml`)
+1. Create versioned Docker Hub tags when release tags are pushed (`.github/workflows/docker-tag-release.yml`)
 
 ## Getting started
 

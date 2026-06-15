@@ -54,32 +54,50 @@ jobs:
           severity: 'CRITICAL,HIGH,MEDIUM'
 
       - name: Post Trivy scan results to PR
-        uses: actions/github-script@v6
         if: github.event_name == 'pull_request'
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const fullResults = fs.readFileSync('trivy-results.txt', 'utf8');
-            
-            let summarySection = '';
-            const summaryMatch = fullResults.match(/Report Summary\n\n(.*?)\nLegend:/s);
-            
-            if (summaryMatch && summaryMatch[1]) {
-              summarySection = summaryMatch[1].trim();
-            } else {
-              summarySection = "No vulnerability summary found. Please check the full report in the Actions tab.";
-            }
-            
-            const header = '## Trivy Security Scan Summary\n\n';
-            const footer = `\n\n---\n\n*For detailed results, please [view the actions output](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}).*`;
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: header + '```\n' + summarySection + '\n```' + footer
-            });
+        shell: python
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          import json
+          import os
+          import re
+          import urllib.request
+
+          with open("trivy-results.txt", encoding="utf-8") as fh:
+              full_results = fh.read()
+
+          match = re.search(r"Report Summary\n\n(.*?)\nLegend:", full_results, re.S)
+          summary_section = (
+              match.group(1).strip()
+              if match
+              else "No vulnerability summary found. Please check the full report in the Actions tab."
+          )
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          owner, name = repo.split("/", 1)
+          body = (
+              "## Trivy Security Scan Summary\n\n"
+              f"```\n{summary_section}\n```\n\n"
+              "---\n\n"
+              f"*For detailed results, please [view the actions output]"
+              f"(https://github.com/{repo}/actions/runs/{os.environ['GITHUB_RUN_ID']}).*"
+          )
+
+          request = urllib.request.Request(
+              url=f"{os.environ['GITHUB_API_URL']}/repos/{owner}/{name}/issues/{os.environ['PR_NUMBER']}/comments",
+              data=json.dumps({"body": body}).encode("utf-8"),
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "Content-Type": "application/json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+              method="POST",
+          )
+          with urllib.request.urlopen(request):
+              pass
 
       # ──────────────────────────────────────────────────────────────
       # publish Trivy results to action log
