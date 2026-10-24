@@ -4,7 +4,7 @@
 
 ## Purpose
 
-The `az-pwsh-terraform` Docker image contains Terraform, PowerShell, TFLint, Trivy, and other useful tools for managing and securing cloud infrastructure on Azure.
+The `az-pwsh-terraform` Docker image contains Terraform, PowerShell, TFLint, Trivy, and other useful tools for managing and securing cloud infrastructure on Azure. It uses Ubuntu 24.04 LTS and Microsoft's PowerShell package repository.
 
 It uses GitHub Actions to automatically:
 
