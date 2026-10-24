@@ -1,5 +1,5 @@
 # build 
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26-alpine AS builder
 RUN apk add --no-cache git
 RUN go install github.com/terraform-docs/terraform-docs@v0.20.0
 ARG NEWRES_VERSION=a535fe92925845dfa033a3db71adf7d65511cbf3
